@@ -285,12 +285,25 @@ def update_skills(args, cfg: dict) -> list[Result]:
     git_copies = [cp for n, cps in inventory.items() if n not in skip for cp in cps if cp.git]
     pre_hash = {cp.real: tree_hash(cp.real) for cp in git_copies}
 
+    # plain git checkouts outside skill folders (e.g. hook-injected instructions)
+    checkouts: list[Copy] = []
+    for raw in cfg.get("checkouts", []):
+        p = Path(os.path.expanduser(raw))
+        name = p.name.lstrip(".") or p.name
+        if args.only and name not in args.only:
+            continue
+        if is_git_root(p):
+            checkouts.append(Copy(name, p.resolve(), ["checkout"]))
+        else:
+            results.append(Result(name, "skipped", raw, "not a git checkout"))
+
     # phase 1: network, in parallel
     repos: dict[str, Path | Exception] = {}
     git_res: dict[Path, tuple[str, str]] = {}
     with cf.ThreadPoolExecutor(max_workers=args.jobs) as pool:
         futs = {pool.submit(fetch_repo, u, ref): ("repo", u) for u, ref in repo_specs}
-        futs.update({pool.submit(git_update, cp, args.check): ("git", cp.real) for cp in git_copies})
+        futs.update({pool.submit(git_update, cp, args.check): ("git", cp.real)
+                     for cp in git_copies + checkouts})
         for f in cf.as_completed(futs):
             kind, key = futs[f]
             try:
@@ -322,6 +335,10 @@ def update_skills(args, cfg: dict) -> list[Result]:
                             agents += cp.agents
             report(name, status, src, detail, agents)
 
+    for cp in checkouts:
+        status, detail = git_res[cp.real]
+        report(cp.name, status, "checkout " + str(cp.real).replace(str(HOME), "~", 1), detail)
+
     # phase 2b: skills tracked by npx skills lock file
     lock_dirty = False
     for name, entry in lock_skills.items():
@@ -339,7 +356,7 @@ def update_skills(args, cfg: dict) -> list[Result]:
             alt = scan_repo(repo).get(name)
             if not alt:
                 report(name, "skipped", entry.get("source", url),
-                       f"{rel / 'SKILL.md'} removed upstream, local copy kept")
+                       f"upstream has no {rel / 'SKILL.md'}, local copy kept")
                 continue
             src, rel = alt, alt.relative_to(repo)
         changed = [cp for cp in inventory[name] if not cp.git and syncer.sync(src, cp)]

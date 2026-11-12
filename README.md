@@ -7,7 +7,7 @@ $ skills-update
  ↑ ex-ussr-kinship-research   https://github.com/DenisSergeevitch/ex-ussr-kinship-research  557abe4..60be957 [claude]
  ↑ swiftui-pro                twostraws/swiftui-agent-skill  [agents, antigravity, claude]
  ↑ writing-skills             obra/superpowers  [agents, claude, openclaw]
- ~ benjamin-plus              JetBrains/benjamin-plus-skill  SKILL.md removed upstream, local copy kept
+ ~ benjamin-plus              JetBrains/benjamin-plus-skill  upstream has no SKILL.md, local copy kept
  ↑ wrangler                   cloudflare/skills  [claude, codex, gemini, hermes, openclaw]
  30 updated, 16 up to date, 1 skipped, 53 no source
 ```
@@ -46,7 +46,7 @@ Exit code is 1 if any fetch or update failed.
 
 | Skill origin | What skills-update does |
 |---|---|
-| Git checkout | `git pull --ff-only`; skips checkouts with uncommitted changes |
+| Git checkout, in a skill folder or listed under `checkouts` | `git pull --ff-only`; skips checkouts with uncommitted changes |
 | `~/.agents/.skill-lock.json` from `npx skills` | fetches the source repo, syncs the folder into every copy, writes the new hash back to the lock file |
 | Repo listed in your config | scans the repo for `SKILL.md` and matches installed skills by name |
 | Claude Code plugins | `claude plugin marketplace update`, then `claude plugin update <id>` |
@@ -64,13 +64,15 @@ Before replacing a copy, skills-update moves the old one to `~/.cache/skills-upd
 {
   "roots": { "myagent": "~/.myagent/skills" },
   "repos": ["cloudflare/skills", { "url": "https://github.com/org/repo.git", "ref": "main" }],
-  "skip":  ["skill-to-freeze"]
+  "skip":  ["skill-to-freeze"],
+  "checkouts": ["~/.benjamin-plus"]
 }
 ```
 
 - `roots`: extra skill folders on top of the built-in list in `AGENT_ROOTS`
 - `repos`: `owner/repo` for GitHub, or any git URL with an optional branch
 - `skip`: skill names to leave untouched
+- `checkouts`: git clones outside any skill folder that skills-update should pull, such as instructions an agent loads through a hook
 
 ## Licence
 
