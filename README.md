@@ -1,45 +1,77 @@
 # skills-update
 
-Одна команда, чтобы обновить все установленные скиллы у всех агентов: Claude Code, Codex, Gemini CLI, Antigravity, `~/.agents`, OpenClaw, Hermes, Cursor, OpenCode и других.
+Update the skills of every coding agent on your machine with one command: Claude Code, Codex, Gemini CLI, Antigravity, `~/.agents` and a dozen more.
 
-```sh
-skills-update            # обновить всё
-skills-update -n         # только показать, что обновится
-skills-update -l         # список скиллов: у каких агентов стоят и откуда взяты
-skills-update -o NAME…   # обновить только выбранные скиллы
-skills-update -v         # показать также актуальные скиллы и скиллы без источника
+```console
+$ skills-update
+ ↑ ex-ussr-kinship-research   https://github.com/DenisSergeevitch/ex-ussr-kinship-research  557abe4..60be957 [claude]
+ ↑ swiftui-pro                twostraws/swiftui-agent-skill  [agents, antigravity, claude]
+ ↑ writing-skills             obra/superpowers  [agents, claude, openclaw]
+ ~ benjamin-plus              JetBrains/benjamin-plus-skill  SKILL.md removed upstream, local copy kept
+ ↑ wrangler                   cloudflare/skills  [claude, codex, gemini, hermes, openclaw]
+ 30 updated, 16 up to date, 1 skipped, 53 no source
 ```
 
-## Откуда берутся обновления
+Status: early, single maintainer, tested on macOS. MIT licence.
 
-| Источник | Как обновляется |
-|---|---|
-| Скилл установлен как git-клон | `git pull --ff-only`; при локальных изменениях пропускается |
-| `~/.agents/.skill-lock.json` (`npx skills`) | Свежий upstream-репозиторий, папка синхронизируется во все копии; хеш в lock-файле обновляется |
-| Репозитории из `~/.config/skills-update/config.json` | Поиск всех `SKILL.md`, сопоставление с установленными скиллами по имени |
-| Плагины Claude Code / Codex | `claude plugin marketplace update` + `claude plugin update`, `codex plugin marketplace upgrade` |
+## Why
 
-Каталоги, которыми управляет приложение-владелец (`.system`, `synced`), не трогаются. Перед заменой копия сохраняется в `~/.cache/skills-update/backups/<время>/`; хранятся последние 10 запусков.
+Each agent keeps its own copy of a skill. `npx skills update` refreshes the skills in its lock file, `git pull` refreshes the ones you cloned, and every other copy stays on whatever version you installed. skills-update finds every copy, works out where it came from and syncs it, so Claude Code and Codex end up on the same version.
 
-## Установка
+It does not install new skills or edit `SKILL.md` content. It also leaves app-managed folders alone (`.system` in Codex, `synced` in Claude Code).
+
+## Install
+
+Requires Python 3.9+ and git. No other dependencies.
 
 ```sh
-git clone https://github.com/<you>/skills-update ~/skills-update
+git clone https://github.com/Christian-SC26/skills-update ~/skills-update
 ln -s ~/skills-update/skills_update.py ~/.local/bin/skills-update
+skills-update -n    # dry run: lists what would change, writes nothing
 ```
 
-Нужны Python 3.9+ и git.
+## Usage
 
-## Конфиг
+```sh
+skills-update                  # update all skills and plugins
+skills-update -n               # dry run
+skills-update -l               # list skills, the agents that have them, and their source
+skills-update -o NAME [NAME…]  # update only these skills
+skills-update -v               # also print up-to-date skills and skills with no known source
+```
+
+Exit code is 1 if any fetch or update failed.
+
+## Where updates come from
+
+| Skill origin | What skills-update does |
+|---|---|
+| Git checkout | `git pull --ff-only`; skips checkouts with uncommitted changes |
+| `~/.agents/.skill-lock.json` from `npx skills` | fetches the source repo, syncs the folder into every copy, writes the new hash back to the lock file |
+| Repo listed in your config | scans the repo for `SKILL.md` and matches installed skills by name |
+| Claude Code plugins | `claude plugin marketplace update`, then `claude plugin update <id>` |
+| Codex plugins | `codex plugin marketplace upgrade` |
+
+A skill with none of these origins shows up as `?` under `-v`. Add its repo to the config and the next run picks it up.
+
+Before replacing a copy, skills-update moves the old one to `~/.cache/skills-update/backups/<timestamp>/` and keeps the last 10 runs. A copy you edited by hand gets overwritten, so restore it from there if you need it.
+
+## Config
 
 `~/.config/skills-update/config.json`:
 
 ```json
 {
-  "roots":  { "myagent": "~/.myagent/skills" },
-  "repos":  ["cloudflare/skills", {"url": "https://github.com/org/repo.git", "ref": "main"}],
-  "skip":   ["skill-to-freeze"]
+  "roots": { "myagent": "~/.myagent/skills" },
+  "repos": ["cloudflare/skills", { "url": "https://github.com/org/repo.git", "ref": "main" }],
+  "skip":  ["skill-to-freeze"]
 }
 ```
 
-Если у скилла нет известного источника, `-v` покажет его со знаком `?`. Добавьте его репозиторий в `repos`.
+- `roots`: extra skill folders on top of the built-in list in `AGENT_ROOTS`
+- `repos`: `owner/repo` for GitHub, or any git URL with an optional branch
+- `skip`: skill names to leave untouched
+
+## Licence
+
+[MIT](LICENSE)
